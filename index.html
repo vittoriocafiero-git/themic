@@ -289,7 +289,6 @@
 
 <!-- Tongue scroll logic — uses MediaPipe Face Landmarker (100% in browser) -->
 <script>
-// MediaPipe loaded on-demand via dynamic import() when user taps the button
 let FaceLandmarker, FilesetResolver;
 
 const MOUTH_OPEN_THRESHOLD = 0.025; // normalized distance to consider mouth "open" (tongue out)
@@ -336,18 +335,18 @@ async function loadModel() {
   setStatus("loading model…");
   dbg.innerHTML = "downloading MediaPipe…";
 
-  // Dynamic import — works in any <script> tag, no type="module" needed
   if (!FaceLandmarker) {
     const mp = await import(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs"
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/vision_bundle.mjs"
     );
     FaceLandmarker  = mp.FaceLandmarker;
     FilesetResolver = mp.FilesetResolver;
-    dbg.innerHTML = "loading WASM + model…";
   }
 
+  dbg.innerHTML = "loading WASM + model…";
+
   const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm/"
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm/"
   );
 
   landmarker = await FaceLandmarker.createFromOptions(vision, {
