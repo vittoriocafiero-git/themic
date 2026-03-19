@@ -287,9 +287,16 @@
 
 <script async src="https://www.tiktok.com/embed.js"></script>
 
-<!-- Tongue scroll logic — uses MediaPipe Face Landmarker (100% in browser) -->
+<!-- Load MediaPipe as a module, expose on window for the main script -->
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/vision_bundle.mjs";
+window.__mp = { FaceLandmarker, FilesetResolver };
+window.dispatchEvent(new CustomEvent("mp-loaded"));
+</script>
+
+<!-- Tongue scroll logic (regular script — click handler always registered) -->
 <script>
-let FaceLandmarker, FilesetResolver;
 
 const MOUTH_OPEN_THRESHOLD = 0.025; // normalized distance to consider mouth "open" (tongue out)
 const SCROLL_MULTIPLIER    = 4000;  // scale normalized delta to pixels
@@ -333,23 +340,24 @@ function setStatus(msg) {
 async function loadModel() {
   if (landmarker) return;
   setStatus("loading model…");
-  dbg.innerHTML = "downloading MediaPipe…";
+  dbg.innerHTML = "waiting for MediaPipe…";
 
-  if (!FaceLandmarker) {
-    const mp = await import(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/vision_bundle.mjs"
-    );
-    FaceLandmarker  = mp.FaceLandmarker;
-    FilesetResolver = mp.FilesetResolver;
+  // Wait for the <script type="module"> to finish loading MediaPipe
+  if (!window.__mp) {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("MediaPipe download timed out")), 20000);
+      window.addEventListener("mp-loaded", () => { clearTimeout(timeout); resolve(); }, { once: true });
+    });
   }
 
+  const { FaceLandmarker: FL, FilesetResolver: FR } = window.__mp;
   dbg.innerHTML = "loading WASM + model…";
 
-  const vision = await FilesetResolver.forVisionTasks(
+  const vision = await FR.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm/"
   );
 
-  landmarker = await FaceLandmarker.createFromOptions(vision, {
+  landmarker = await FL.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath:
         "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
