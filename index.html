@@ -269,10 +269,9 @@
     { user: "jasminenicole1995",   id: "7612514010029706509" },
   ];
 
-  const all = Array.from({ length: 8 }, () => posts).flat();
   const grid = document.getElementById("grid");
 
-  all.forEach(({ user, id }) => {
+  posts.forEach(({ user, id }) => {
     const url = `https://www.tiktok.com/@${user}/video/${id}`;
     const wrap = document.createElement("div");
     wrap.className = "post-wrap";
