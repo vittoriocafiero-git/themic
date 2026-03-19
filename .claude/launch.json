@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "the-mic",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8788", "--directory", "/Users/vitcafie2/Library/CloudStorage/Box-Box/Claude/The Mic"],
+      "port": 8788
+    }
+  ]
+}
