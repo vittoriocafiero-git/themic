@@ -97,6 +97,16 @@
   <div class="feed-item"><img src="https://picsum.photos/seed/mic8/600/600"  alt="" loading="lazy"></div>
   <div class="feed-item"><img src="https://picsum.photos/seed/mic9/600/600"  alt="" loading="lazy"></div>
   <div class="feed-item"><img src="https://picsum.photos/seed/mic10/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic11/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic12/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic13/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic14/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic15/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic16/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic17/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic18/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic19/600/600" alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic20/600/600" alt="" loading="lazy"></div>
 </main>
 
 <button id="tongue-btn">👅</button>
@@ -109,14 +119,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
 <script>
-const MOUTH_OPEN_TH = 0.03;   // normalized Y gap between inner lips = "tongue out"
-const SCROLL_MULT   = 3500;   // scale lip-delta to px
+const MOUTH_OPEN_TH = 0.03;    // normalized Y gap between inner lips = "tongue out"
+const SCROLL_MULT   = 4000;    // scale smoothed lip-delta to px
+const EMA_ALPHA     = 0.3;     // smoothing factor: lower = smoother but more lag
+const DEAD_ZONE     = 0.0008;  // ignore deltas smaller than this (kills jitter)
 
-let active     = false;
-let fm         = null;
-let loopId     = null;
-let processing = false;
-let prevLipY   = null;
+let active      = false;
+let fm          = null;
+let loopId      = null;
+let processing  = false;
+let smoothedY   = null;   // EMA-smoothed lower lip Y
+let prevY       = null;   // previous smoothed Y
 
 const btn      = document.getElementById("tongue-btn");
 const pip      = document.getElementById("pip");
@@ -147,14 +160,22 @@ function onFaceResults(results) {
   const open = Math.abs(lm[14].y - lm[13].y);  // 13=upper inner lip, 14=lower inner lip
 
   if (open > MOUTH_OPEN_TH) {
-    const lipY = lm[14].y;
-    if (prevLipY !== null) {
-      window.scrollBy({ top: (lipY - prevLipY) * SCROLL_MULT, behavior: "auto" });
+    const rawY = lm[14].y;
+    // Exponential moving average — smooths out per-frame jitter
+    smoothedY = smoothedY === null ? rawY : EMA_ALPHA * rawY + (1 - EMA_ALPHA) * smoothedY;
+
+    if (prevY !== null) {
+      const delta = smoothedY - prevY;
+      // Dead zone — only scroll if movement is meaningful
+      if (Math.abs(delta) > DEAD_ZONE) {
+        window.scrollBy({ top: delta * SCROLL_MULT, behavior: "auto" });
+      }
     }
-    prevLipY = lipY;
+    prevY = smoothedY;
     setStatus("👅 scrolling");
   } else {
-    prevLipY = null;
+    smoothedY = null;
+    prevY     = null;
     setStatus("😐 tongue out to scroll");
   }
 }
@@ -203,14 +224,14 @@ btn.addEventListener("click", async () => {
     showToast("Loading model… (first launch ~5 s)");
     if (!fm) fm = await buildFaceMesh();
 
-    // 10 fps, no frame stacking
+    // 15 fps, no frame stacking
     processing = false;
     loopId = setInterval(async () => {
       if (processing || !active) return;
       processing = true;
       try { await fm.send({ image: cam }); } catch (_) {}
       processing = false;
-    }, 100);
+    }, 67);
 
     active = true;
     pip.style.display = "block";
