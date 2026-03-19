@@ -287,6 +287,9 @@
 
 <script async src="https://www.tiktok.com/embed.js"></script>
 
+<!-- Roboflow client-side inference (model runs locally in browser via TF.js) -->
+<script src="https://cdn.roboflow.com/0.2.26/roboflow.js"></script>
+
 <!-- Tongue scroll logic -->
 <script>
 (function () {
@@ -297,7 +300,6 @@
   const SCROLL_MULTIPLIER    = 12;
   const SMOOTH_FRAMES        = 3;
   const MISS_FRAMES_STOP     = 5;
-  const DETECT_INTERVAL_MS   = 150;
 
   const btn      = document.getElementById("tongue-btn");
   const pip      = document.getElementById("tongue-pip");
@@ -307,20 +309,14 @@
   const dbg      = document.getElementById("tongue-debug");
   const toast    = document.getElementById("tongue-toast");
 
-  let callCount = 0;
-
-  // Offscreen canvas for frame capture
-  const canvas = document.createElement("canvas");
-  canvas.width  = 160;
-  canvas.height = 120;
-  const ctx = canvas.getContext("2d");
-
   let active    = false;
+  let model     = null;
   let stream    = null;
-  let loopTimer = null;
+  let rafId     = null;
   let prevY     = null;
   let yHistory  = [];
   let missCount = 0;
+  let frameCount = 0;
 
   function showToast(msg, ms = 4000) {
     toast.textContent = msg;
@@ -338,43 +334,35 @@
     }
   }
 
-  async function detect() {
-    // Wait until video has data
-    if (hidVideo.readyState < 2) return [];
+  /* ── Load model into browser (one-time download, then runs locally) ── */
+  function loadModel() {
+    return new Promise((resolve, reject) => {
+      if (model) { resolve(model); return; }
 
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.drawImage(hidVideo, -160, 0, 160, 120);
-    ctx.restore();
+      setStatus("loading model…");
+      dbg.innerHTML = "downloading model to browser…";
 
-    const base64 = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
-    callCount++;
-
-    const res = await fetch(
-      `https://detect.roboflow.com/${RF_MODEL}/${RF_VER}?api_key=${RF_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: base64,
-      }
-    );
-
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const data = await res.json();
-    const preds = data.predictions || [];
-
-    // Debug readout
-    const best = preds[0];
-    dbg.innerHTML = `calls:${callCount} | preds:${preds.length}<br>`
-      + (best ? `conf:${(best.confidence*100).toFixed(0)}% y:${best.y.toFixed(0)}` : "no tongue");
-
-    console.log("RF preds:", preds);
-    return preds;
+      roboflow
+        .auth({ publishable_key: RF_KEY })
+        .load({ model: RF_MODEL, version: RF_VER })
+        .then(function (m) {
+          model = m;
+          console.log("Roboflow model loaded (client-side):", m);
+          dbg.innerHTML = "model loaded ✓";
+          resolve(m);
+        })
+        .catch(function (err) {
+          console.error("Model load error:", err);
+          dbg.innerHTML = "model load FAILED: " + (err && err.message || JSON.stringify(err));
+          reject(new Error("Model load failed: " + (err && err.message || JSON.stringify(err))));
+        });
+    });
   }
 
+  /* ── Camera ── */
   async function startCamera() {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: 320, height: 240 }
+      video: { facingMode: "user", width: { ideal: 320 }, height: { ideal: 240 } }
     });
     hidVideo.srcObject = stream;
     pipVideo.srcObject = stream;
@@ -392,58 +380,77 @@
     dbg.style.display  = "none";
   }
 
+  /* ── Detection loop (runs entirely in-browser, no network calls) ── */
   async function detectLoop() {
     if (!active) return;
 
     try {
-      const predictions = await detect();
-      const tongue = predictions
-        .filter(p => p.confidence >= CONFIDENCE_THRESHOLD)
-        .sort((a, b) => b.confidence - a.confidence)[0];
+      if (hidVideo.readyState >= 2) {
+        // model.detect() runs inference locally via TF.js — no API call
+        const predictions = await model.detect(hidVideo);
+        frameCount++;
 
-      if (tongue) {
-        missCount = 0;
-        const cy = tongue.y; // center Y in image coords
+        const tongue = predictions
+          .filter(p => p.confidence >= CONFIDENCE_THRESHOLD)
+          .sort((a, b) => b.confidence - a.confidence)[0];
 
-        yHistory.push(cy);
-        if (yHistory.length > SMOOTH_FRAMES) yHistory.shift();
+        // Debug readout
+        const best = predictions[0];
+        dbg.innerHTML = `frame:${frameCount} | preds:${predictions.length}<br>`
+          + (best ? `conf:${(best.confidence * 100).toFixed(0)}% y:${best.bbox ? best.bbox.y.toFixed(0) : best.y.toFixed(0)}` : "no tongue");
 
-        if (prevY !== null && yHistory.length >= 2) {
-          const smoothed = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
-          const delta = smoothed - prevY;
-          window.scrollBy({ top: delta * SCROLL_MULTIPLIER, behavior: "auto" });
-        }
+        if (tongue) {
+          missCount = 0;
+          // bbox.y = center Y in video pixel coords; fallback to top-level .y
+          const cy = tongue.bbox ? tongue.bbox.y : tongue.y;
 
-        prevY = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
-        setStatus("👅 scrolling");
-      } else {
-        missCount++;
-        if (missCount >= MISS_FRAMES_STOP) {
-          prevY = null; yHistory = [];
-          setStatus("👅 ready");
+          yHistory.push(cy);
+          if (yHistory.length > SMOOTH_FRAMES) yHistory.shift();
+
+          if (prevY !== null && yHistory.length >= 2) {
+            const smoothed = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
+            const delta = smoothed - prevY;
+            window.scrollBy({ top: delta * SCROLL_MULTIPLIER, behavior: "auto" });
+          }
+
+          prevY = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
+          setStatus("👅 scrolling");
+        } else {
+          missCount++;
+          if (missCount >= MISS_FRAMES_STOP) {
+            prevY = null; yHistory = [];
+            setStatus("👅 ready");
+          }
         }
       }
     } catch (e) {
       console.warn("Tongue detect error:", e);
+      dbg.innerHTML = "detect err: " + (e.message || String(e));
     }
 
-    if (active) loopTimer = setTimeout(detectLoop, DETECT_INTERVAL_MS);
+    rafId = requestAnimationFrame(detectLoop);
   }
 
+  /* ── Activate / Deactivate ── */
   async function activate() {
-    btn.textContent  = "⏳";
-    btn.disabled     = true;
-    setStatus("loading…");
+    btn.textContent = "⏳";
+    btn.disabled    = true;
+    setStatus("starting…");
 
     try {
       await startCamera();
+      setStatus("loading model…");
+      await loadModel();
+
       active = true;
       btn.classList.add("active");
       btn.textContent = "👅";
       btn.disabled    = false;
-      setStatus("👅 ready");
+      setStatus("👅 ready — stick out your tongue!");
+      showToast("Move your tongue up/down to scroll", 3000);
       detectLoop();
     } catch (e) {
+      console.error("Activate error:", e);
       btn.textContent = "👅";
       btn.disabled    = false;
       btn.classList.remove("active");
@@ -453,20 +460,21 @@
       if (e.name === "NotAllowedError") {
         showToast("Camera permission denied. Please allow camera access.");
       } else {
-        showToast("Could not start: " + (e.message || String(e)));
+        showToast("Error: " + (e.message || String(e)), 6000);
       }
     }
   }
 
   function deactivate() {
     active = false;
-    if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     stopCamera();
     btn.classList.remove("active");
     btn.textContent = "👅";
     prevY    = null;
     yHistory = [];
-    missCount = 0;
+    missCount  = 0;
+    frameCount = 0;
     setStatus(null);
   }
 
