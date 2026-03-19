@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Mic</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #f0f0f0;
+      font-family: 'Georgia', serif;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 32px;
+      border-bottom: 1px solid #222;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo svg {
+      width: 72px;
+      height: 72px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: clamp(2rem, 6vw, 3.6rem);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #e8e0d0;
+      line-height: 1;
+    }
+
+    .logo-text span {
+      color: #c8a040;
+    }
+
+    .tagline {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #666;
+    }
+
+    /* ── GRID ── */
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(325px, 1fr));
+      gap: 24px;
+      justify-items: center;
+    }
+
+    .post-wrap {
+      width: 100%;
+      max-width: 605px;
+      background: #111;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1e1e1e;
+      transition: border-color 0.2s;
+    }
+
+    .post-wrap:hover {
+      border-color: #c8a040;
+    }
+
+    /* keep TikTok embeds from overflowing */
+    .post-wrap blockquote {
+      width: 100% !important;
+      min-width: unset !important;
+      max-width: 100% !important;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #333;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      border-top: 1px solid #1a1a1a;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <!-- Classic cone microphone SVG -->
+    <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="The Mic logo">
+      <!-- Stand base -->
+      <rect x="30" y="62" width="12" height="3" rx="1.5" fill="#888"/>
+      <!-- Stand pole -->
+      <rect x="34.5" y="46" width="3" height="17" rx="1.5" fill="#888"/>
+      <!-- Stand arm -->
+      <path d="M36 46 Q36 36 26 32" stroke="#888" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+      <!-- Mic body (cone/barrel shape) -->
+      <path d="M18 14 L22 44 L34 46 L34 12 Z" fill="#c8a040"/>
+      <path d="M18 14 L34 12 L34 46 L22 44 Z" fill="#e0b84a"/>
+      <!-- Mic grille lines -->
+      <line x1="19.5" y1="20" x2="33.5" y2="18.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
+      <line x1="20.5" y1="26" x2="33.5" y2="24.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
+      <line x1="21.5" y1="32" x2="33.8" y2="30.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
+      <line x1="22.5" y1="38" x2="33.8" y2="36.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
+      <!-- Mic top cap -->
+      <ellipse cx="26" cy="13" rx="8" ry="3" fill="#b89030"/>
+      <!-- Mic bottom ring -->
+      <ellipse cx="28" cy="45" rx="6" ry="1.8" fill="#b89030"/>
+      <!-- Shine -->
+      <path d="M21 16 Q23 28 22.5 42" stroke="rgba(255,255,255,0.18)" stroke-width="2" stroke-linecap="round" fill="none"/>
+    </svg>
+    <div>
+      <div class="logo-text">The <span>Mic</span></div>
+    </div>
+  </div>
+  <p class="tagline">Voices worth hearing</p>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>
+  &copy; 2026 The Mic &mdash; All videos belong to their respective creators on TikTok.
+</footer>
+
+<script>
+  const posts = [
+    { user: "buildrescue",         id: "7610073831037766934" },
+    { user: "us_delicious_cooking",id: "7612045334025342221" },
+    { user: "the_pastaqueen",      id: "7613122317987630366" },
+    { user: "superhomecook",       id: "7612699998161063190" },
+    { user: "cedriklorenzen",      id: "7596713133293587734" },
+    { user: "kerrangradio",        id: "7612045099958127894" },
+    { user: "mymicrowavepro",      id: "7610600736778489102" },
+    { user: "jasminenicole1995",   id: "7612514010029706509" },
+  ];
+
+  // Repeat 8 times → 64 posts
+  const all = Array.from({ length: 8 }, () => posts).flat();
+
+  const grid = document.getElementById("grid");
+
+  all.forEach(({ user, id }) => {
+    const url = `https://www.tiktok.com/@${user}/video/${id}`;
+    const wrap = document.createElement("div");
+    wrap.className = "post-wrap";
+    wrap.innerHTML = `
+      <blockquote class="tiktok-embed"
+        cite="${url}"
+        data-video-id="${id}">
+        <section></section>
+      </blockquote>`;
+    grid.appendChild(wrap);
+  });
+</script>
+
+<!-- Load TikTok embed script once -->
+<script async src="https://www.tiktok.com/embed.js"></script>
+
+</body>
+</html>
