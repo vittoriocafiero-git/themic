@@ -287,10 +287,10 @@
 
 <script async src="https://www.tiktok.com/embed.js"></script>
 
-<!-- MediaPipe Face Landmarker — runs 100% in browser, no API key -->
-<script type="module">
-import { FaceLandmarker, FilesetResolver } from
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs";
+<!-- Tongue scroll logic — uses MediaPipe Face Landmarker (100% in browser) -->
+<script>
+// MediaPipe loaded on-demand via dynamic import() when user taps the button
+let FaceLandmarker, FilesetResolver;
 
 const MOUTH_OPEN_THRESHOLD = 0.025; // normalized distance to consider mouth "open" (tongue out)
 const SCROLL_MULTIPLIER    = 4000;  // scale normalized delta to pixels
@@ -330,11 +330,21 @@ function setStatus(msg) {
   else { statusEl.style.display = "none"; }
 }
 
-/* ── Load MediaPipe Face Landmarker (one-time) ── */
+/* ── Load MediaPipe Face Landmarker (one-time, lazy) ── */
 async function loadModel() {
   if (landmarker) return;
   setStatus("loading model…");
-  dbg.innerHTML = "downloading face model…";
+  dbg.innerHTML = "downloading MediaPipe…";
+
+  // Dynamic import — works in any <script> tag, no type="module" needed
+  if (!FaceLandmarker) {
+    const mp = await import(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs"
+    );
+    FaceLandmarker  = mp.FaceLandmarker;
+    FilesetResolver = mp.FilesetResolver;
+    dbg.innerHTML = "loading WASM + model…";
+  }
 
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm/"
