@@ -84,7 +84,6 @@
       border-color: #c8a040;
     }
 
-    /* keep TikTok embeds from overflowing */
     .post-wrap blockquote {
       width: 100% !important;
       min-width: unset !important;
@@ -100,33 +99,117 @@
       letter-spacing: 0.1em;
       border-top: 1px solid #1a1a1a;
     }
+
+    /* ── TONGUE SCROLL ── */
+
+    /* Hidden video feed */
+    #tongue-video {
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      width: 320px;
+      height: 240px;
+    }
+
+    /* PIP camera preview */
+    #tongue-pip {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      width: 90px;
+      height: 68px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid #c8a040;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+    }
+
+    #tongue-pip video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror for selfie */
+    }
+
+    /* Toggle button */
+    #tongue-btn {
+      position: fixed;
+      bottom: 28px;
+      right: 24px;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      cursor: pointer;
+      z-index: 1001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    #tongue-btn.active {
+      background: #1e1600;
+      border-color: #c8a040;
+      box-shadow: 0 0 16px rgba(200,160,64,0.5);
+    }
+
+    /* Status badge */
+    #tongue-status {
+      position: fixed;
+      bottom: 98px;
+      right: 16px;
+      background: rgba(0,0,0,0.75);
+      color: #c8a040;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid #c8a04055;
+      z-index: 1001;
+      display: none;
+      white-space: nowrap;
+    }
+
+    /* Toast */
+    #tongue-toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      color: #f0f0f0;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 0.82rem;
+      z-index: 1002;
+      display: none;
+      border: 1px solid #333;
+    }
   </style>
 </head>
 <body>
 
 <header>
   <div class="logo">
-    <!-- Classic cone microphone SVG -->
     <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="The Mic logo">
-      <!-- Stand base -->
       <rect x="30" y="62" width="12" height="3" rx="1.5" fill="#888"/>
-      <!-- Stand pole -->
       <rect x="34.5" y="46" width="3" height="17" rx="1.5" fill="#888"/>
-      <!-- Stand arm -->
       <path d="M36 46 Q36 36 26 32" stroke="#888" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-      <!-- Mic body (cone/barrel shape) -->
       <path d="M18 14 L22 44 L34 46 L34 12 Z" fill="#c8a040"/>
       <path d="M18 14 L34 12 L34 46 L22 44 Z" fill="#e0b84a"/>
-      <!-- Mic grille lines -->
       <line x1="19.5" y1="20" x2="33.5" y2="18.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
       <line x1="20.5" y1="26" x2="33.5" y2="24.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
       <line x1="21.5" y1="32" x2="33.8" y2="30.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
       <line x1="22.5" y1="38" x2="33.8" y2="36.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
-      <!-- Mic top cap -->
       <ellipse cx="26" cy="13" rx="8" ry="3" fill="#b89030"/>
-      <!-- Mic bottom ring -->
       <ellipse cx="28" cy="45" rx="6" ry="1.8" fill="#b89030"/>
-      <!-- Shine -->
       <path d="M21 16 Q23 28 22.5 42" stroke="rgba(255,255,255,0.18)" stroke-width="2" stroke-linecap="round" fill="none"/>
     </svg>
     <div>
@@ -144,6 +227,18 @@
   &copy; 2026 The Mic &mdash; All videos belong to their respective creators on TikTok.
 </footer>
 
+<!-- Tongue scroll UI -->
+<div id="tongue-pip">
+  <video id="pip-video" autoplay muted playsinline></video>
+</div>
+
+<video id="tongue-video" autoplay muted playsinline></video>
+
+<button id="tongue-btn" title="Tongue scroll">👅</button>
+<div id="tongue-status"></div>
+<div id="tongue-toast"></div>
+
+<!-- TikTok posts -->
 <script>
   const posts = [
     { user: "buildrescue",         id: "7610073831037766934" },
@@ -156,9 +251,7 @@
     { user: "jasminenicole1995",   id: "7612514010029706509" },
   ];
 
-  // Repeat 8 times → 64 posts
   const all = Array.from({ length: 8 }, () => posts).flat();
-
   const grid = document.getElementById("grid");
 
   all.forEach(({ user, id }) => {
@@ -175,8 +268,173 @@
   });
 </script>
 
-<!-- Load TikTok embed script once -->
 <script async src="https://www.tiktok.com/embed.js"></script>
+
+<!-- Roboflow -->
+<script src="https://cdn.roboflow.com/0.2.20/roboflow.js"></script>
+
+<!-- Tongue scroll logic -->
+<script>
+(function () {
+  const RF_KEY   = "rf_IUCaySPyzZfaNupjWdpU9XN0VnG2";
+  const RF_MODEL = "tongue-detection-3okgf";
+  const RF_VER   = 1;
+  const CONFIDENCE_THRESHOLD = 0.45;
+  const SCROLL_MULTIPLIER    = 10;
+  const SMOOTH_FRAMES        = 4;   // rolling average window
+  const MISS_FRAMES_STOP     = 5;   // frames without tongue before pause
+
+  const btn      = document.getElementById("tongue-btn");
+  const pip      = document.getElementById("tongue-pip");
+  const pipVideo = document.getElementById("pip-video");
+  const hidVideo = document.getElementById("tongue-video");
+  const status   = document.getElementById("tongue-status");
+  const toast    = document.getElementById("tongue-toast");
+
+  let active    = false;
+  let model     = null;
+  let stream    = null;
+  let rafId     = null;
+  let prevY     = null;
+  let yHistory  = [];   // rolling buffer
+  let missCount = 0;
+
+  function showToast(msg, ms = 3000) {
+    toast.textContent = msg;
+    toast.style.display = "block";
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { toast.style.display = "none"; }, ms);
+  }
+
+  function setStatus(msg) {
+    if (msg) {
+      status.textContent = msg;
+      status.style.display = "block";
+    } else {
+      status.style.display = "none";
+    }
+  }
+
+  async function loadModel() {
+    if (model) return model;
+    return new Promise((resolve, reject) => {
+      roboflow.auth({ publishable_key: RF_KEY })
+        .load({ model: RF_MODEL, version: RF_VER,
+                onMetadata: () => {} })
+        .then(m => { model = m; resolve(m); })
+        .catch(reject);
+    });
+  }
+
+  async function startCamera() {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: 320, height: 240 }
+    });
+    hidVideo.srcObject  = stream;
+    pipVideo.srcObject  = stream;
+    await hidVideo.play();
+    await pipVideo.play();
+    pip.style.display = "block";
+  }
+
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+    hidVideo.srcObject  = null;
+    pipVideo.srcObject  = null;
+    pip.style.display   = "none";
+  }
+
+  async function detectLoop() {
+    if (!active) return;
+
+    try {
+      const predictions = await model.detect(hidVideo);
+      const tongue = predictions
+        .filter(p => p.confidence >= CONFIDENCE_THRESHOLD)
+        .sort((a, b) => b.confidence - a.confidence)[0];
+
+      if (tongue) {
+        missCount = 0;
+        const cy = tongue.bbox.y; // center Y in video coords
+
+        // Add to rolling history
+        yHistory.push(cy);
+        if (yHistory.length > SMOOTH_FRAMES) yHistory.shift();
+
+        if (prevY !== null && yHistory.length >= 2) {
+          const smoothed = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
+          const delta = smoothed - prevY;
+          window.scrollBy({ top: delta * SCROLL_MULTIPLIER, behavior: "auto" });
+        }
+
+        prevY = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
+        setStatus("👅 scrolling");
+      } else {
+        missCount++;
+        if (missCount >= MISS_FRAMES_STOP) {
+          prevY    = null;
+          yHistory = [];
+          setStatus("👅 ready");
+        }
+      }
+    } catch (e) {
+      // inference error — keep looping
+    }
+
+    rafId = requestAnimationFrame(detectLoop);
+  }
+
+  async function activate() {
+    btn.textContent  = "⏳";
+    btn.disabled     = true;
+    setStatus("loading…");
+
+    try {
+      await startCamera();
+      await loadModel();
+
+      active = true;
+      btn.classList.add("active");
+      btn.textContent = "👅";
+      btn.disabled    = false;
+      setStatus("👅 ready");
+      detectLoop();
+    } catch (e) {
+      btn.textContent = "👅";
+      btn.disabled    = false;
+      btn.classList.remove("active");
+      setStatus(null);
+      stopCamera();
+      active = false;
+      if (e.name === "NotAllowedError") {
+        showToast("Camera permission denied. Please allow camera access.");
+      } else {
+        showToast("Could not start tongue scroll: " + e.message);
+      }
+    }
+  }
+
+  function deactivate() {
+    active = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    stopCamera();
+    btn.classList.remove("active");
+    btn.textContent = "👅";
+    prevY    = null;
+    yHistory = [];
+    missCount = 0;
+    setStatus(null);
+  }
+
+  btn.addEventListener("click", () => {
+    if (active) deactivate();
+    else activate();
+  });
+})();
+</script>
 
 </body>
 </html>
