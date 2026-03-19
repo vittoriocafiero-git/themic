@@ -287,202 +287,208 @@
 
 <script async src="https://www.tiktok.com/embed.js"></script>
 
-<!-- Roboflow client-side inference (model runs locally in browser via TF.js) -->
-<script src="https://cdn.roboflow.com/0.2.26/roboflow.js"></script>
+<!-- MediaPipe Face Landmarker — runs 100% in browser, no API key -->
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs";
 
-<!-- Tongue scroll logic -->
-<script>
-(function () {
-  const RF_KEY   = "rf_IUCaySPyzZfaNupjWdpU9XN0VnG2";
-  const RF_MODEL = "tongue-detection-3okgf";
-  const RF_VER   = 1;
-  const CONFIDENCE_THRESHOLD = 0.30;
-  const SCROLL_MULTIPLIER    = 12;
-  const SMOOTH_FRAMES        = 3;
-  const MISS_FRAMES_STOP     = 5;
+const MOUTH_OPEN_THRESHOLD = 0.025; // normalized distance to consider mouth "open" (tongue out)
+const SCROLL_MULTIPLIER    = 4000;  // scale normalized delta to pixels
+const SMOOTH_FRAMES        = 3;
+const MISS_FRAMES_STOP     = 8;
 
-  const btn      = document.getElementById("tongue-btn");
-  const pip      = document.getElementById("tongue-pip");
-  const pipVideo = document.getElementById("pip-video");
-  const hidVideo = document.getElementById("tongue-video");
-  const status   = document.getElementById("tongue-status");
-  const dbg      = document.getElementById("tongue-debug");
-  const toast    = document.getElementById("tongue-toast");
+const btn      = document.getElementById("tongue-btn");
+const pip      = document.getElementById("tongue-pip");
+const pipVideo = document.getElementById("pip-video");
+const hidVideo = document.getElementById("tongue-video");
+const statusEl = document.getElementById("tongue-status");
+const dbg      = document.getElementById("tongue-debug");
+const toast    = document.getElementById("tongue-toast");
 
-  let active    = false;
-  let model     = null;
-  let stream    = null;
-  let rafId     = null;
-  let prevY     = null;
-  let yHistory  = [];
-  let missCount = 0;
-  let frameCount = 0;
+let active     = false;
+let landmarker = null;
+let stream     = null;
+let rafId      = null;
+let prevY      = null;
+let yHistory   = [];
+let missCount  = 0;
+let frameCount = 0;
 
-  function showToast(msg, ms = 4000) {
-    toast.textContent = msg;
-    toast.style.display = "block";
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => { toast.style.display = "none"; }, ms);
-  }
+function showToast(msg, ms = 4000) {
+  toast.textContent = msg;
+  toast.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.display = "none"; }, ms);
+}
 
-  function setStatus(msg) {
-    if (msg) {
-      status.textContent = msg;
-      status.style.display = "block";
-    } else {
-      status.style.display = "none";
-    }
-  }
+function setStatus(msg) {
+  if (msg) { statusEl.textContent = msg; statusEl.style.display = "block"; }
+  else { statusEl.style.display = "none"; }
+}
 
-  /* ── Load model into browser (one-time download, then runs locally) ── */
-  function loadModel() {
-    return new Promise((resolve, reject) => {
-      if (model) { resolve(model); return; }
+/* ── Load MediaPipe Face Landmarker (one-time) ── */
+async function loadModel() {
+  if (landmarker) return;
+  setStatus("loading model…");
+  dbg.innerHTML = "downloading face model…";
 
-      setStatus("loading model…");
-      dbg.innerHTML = "downloading model to browser…";
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+  );
 
-      roboflow
-        .auth({ publishable_key: RF_KEY })
-        .load({ model: RF_MODEL, version: RF_VER })
-        .then(function (m) {
-          model = m;
-          console.log("Roboflow model loaded (client-side):", m);
-          dbg.innerHTML = "model loaded ✓";
-          resolve(m);
-        })
-        .catch(function (err) {
-          console.error("Model load error:", err);
-          dbg.innerHTML = "model load FAILED: " + (err && err.message || JSON.stringify(err));
-          reject(new Error("Model load failed: " + (err && err.message || JSON.stringify(err))));
-        });
-    });
-  }
+  landmarker = await FaceLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      delegate: "GPU",
+    },
+    runningMode: "VIDEO",
+    numFaces: 1,
+    outputFaceBlendshapes: true,  // gives us tongueOut score
+  });
 
-  /* ── Camera ── */
-  async function startCamera() {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 320 }, height: { ideal: 240 } }
-    });
-    hidVideo.srcObject = stream;
-    pipVideo.srcObject = stream;
-    await hidVideo.play();
-    await pipVideo.play();
-    pip.style.display = "block";
-    dbg.style.display = "block";
-  }
+  dbg.innerHTML = "model loaded ✓";
+  console.log("MediaPipe FaceLandmarker loaded");
+}
 
-  function stopCamera() {
-    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-    hidVideo.srcObject = null;
-    pipVideo.srcObject = null;
-    pip.style.display  = "none";
-    dbg.style.display  = "none";
-  }
+/* ── Camera ── */
+async function startCamera() {
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user", width: { ideal: 320 }, height: { ideal: 240 } }
+  });
+  hidVideo.srcObject = stream;
+  pipVideo.srcObject = stream;
+  await hidVideo.play();
+  await pipVideo.play();
+  pip.style.display = "block";
+  dbg.style.display = "block";
+}
 
-  /* ── Detection loop (runs entirely in-browser, no network calls) ── */
-  async function detectLoop() {
-    if (!active) return;
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  hidVideo.srcObject = null;
+  pipVideo.srcObject = null;
+  pip.style.display  = "none";
+  dbg.style.display  = "none";
+}
 
-    try {
-      if (hidVideo.readyState >= 2) {
-        // model.detect() runs inference locally via TF.js — no API call
-        const predictions = await model.detect(hidVideo);
-        frameCount++;
+/* ── Detection loop (100% local, zero network) ── */
+function detectLoop() {
+  if (!active) return;
 
-        const tongue = predictions
-          .filter(p => p.confidence >= CONFIDENCE_THRESHOLD)
-          .sort((a, b) => b.confidence - a.confidence)[0];
+  try {
+    if (hidVideo.readyState >= 2) {
+      const now = performance.now();
+      const result = landmarker.detectForVideo(hidVideo, now);
+      frameCount++;
 
-        // Debug readout
-        const best = predictions[0];
-        dbg.innerHTML = `frame:${frameCount} | preds:${predictions.length}<br>`
-          + (best ? `conf:${(best.confidence * 100).toFixed(0)}% y:${best.bbox ? best.bbox.y.toFixed(0) : best.y.toFixed(0)}` : "no tongue");
+      let tongueActive = false;
+      let mouthCenterY = null;
+      let openness = 0;
+      let tongueOutScore = 0;
 
-        if (tongue) {
-          missCount = 0;
-          // bbox.y = center Y in video pixel coords; fallback to top-level .y
-          const cy = tongue.bbox ? tongue.bbox.y : tongue.y;
+      if (result.faceLandmarks && result.faceLandmarks.length > 0) {
+        const lm = result.faceLandmarks[0];
 
-          yHistory.push(cy);
-          if (yHistory.length > SMOOTH_FRAMES) yHistory.shift();
+        // Landmarks 13 = inner upper lip center, 14 = inner lower lip center
+        const upperLip = lm[13];
+        const lowerLip = lm[14];
+        openness = lowerLip.y - upperLip.y; // normalized 0–1
+        mouthCenterY = (upperLip.y + lowerLip.y) / 2;
 
-          if (prevY !== null && yHistory.length >= 2) {
-            const smoothed = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
-            const delta = smoothed - prevY;
-            window.scrollBy({ top: delta * SCROLL_MULTIPLIER, behavior: "auto" });
-          }
+        // Also check blendshapes for tongueOut if available
+        if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
+          const shapes = result.faceBlendshapes[0].categories;
+          const tongueShape = shapes.find(s => s.categoryName === "tongueOut");
+          tongueOutScore = tongueShape ? tongueShape.score : 0;
+        }
 
-          prevY = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
-          setStatus("👅 scrolling");
-        } else {
-          missCount++;
-          if (missCount >= MISS_FRAMES_STOP) {
-            prevY = null; yHistory = [];
-            setStatus("👅 ready");
-          }
+        // Tongue is "active" if mouth is open enough OR blendshape says tongue is out
+        tongueActive = openness > MOUTH_OPEN_THRESHOLD || tongueOutScore > 0.3;
+      }
+
+      // Debug
+      dbg.innerHTML = `frame:${frameCount} | open:${(openness*1000).toFixed(1)}<br>`
+        + `tongue:${tongueOutScore.toFixed(2)} | `
+        + (tongueActive ? `y:${(mouthCenterY*1000).toFixed(0)}` : "closed");
+
+      if (tongueActive && mouthCenterY !== null) {
+        missCount = 0;
+
+        yHistory.push(mouthCenterY);
+        if (yHistory.length > SMOOTH_FRAMES) yHistory.shift();
+
+        if (prevY !== null && yHistory.length >= 2) {
+          const smoothed = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
+          const delta = smoothed - prevY;
+          window.scrollBy({ top: delta * SCROLL_MULTIPLIER, behavior: "auto" });
+        }
+
+        prevY = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
+        setStatus("👅 scrolling");
+      } else {
+        missCount++;
+        if (missCount >= MISS_FRAMES_STOP) {
+          prevY = null; yHistory = [];
+          setStatus("👅 ready");
         }
       }
-    } catch (e) {
-      console.warn("Tongue detect error:", e);
-      dbg.innerHTML = "detect err: " + (e.message || String(e));
     }
-
-    rafId = requestAnimationFrame(detectLoop);
+  } catch (e) {
+    console.warn("Detect error:", e);
+    dbg.innerHTML = "err: " + (e.message || String(e));
   }
 
-  /* ── Activate / Deactivate ── */
-  async function activate() {
-    btn.textContent = "⏳";
-    btn.disabled    = true;
-    setStatus("starting…");
+  rafId = requestAnimationFrame(detectLoop);
+}
 
-    try {
-      await startCamera();
-      setStatus("loading model…");
-      await loadModel();
+/* ── Activate / Deactivate ── */
+async function activate() {
+  btn.textContent = "⏳";
+  btn.disabled    = true;
+  setStatus("starting…");
 
-      active = true;
-      btn.classList.add("active");
-      btn.textContent = "👅";
-      btn.disabled    = false;
-      setStatus("👅 ready — stick out your tongue!");
-      showToast("Move your tongue up/down to scroll", 3000);
-      detectLoop();
-    } catch (e) {
-      console.error("Activate error:", e);
-      btn.textContent = "👅";
-      btn.disabled    = false;
-      btn.classList.remove("active");
-      setStatus(null);
-      stopCamera();
-      active = false;
-      if (e.name === "NotAllowedError") {
-        showToast("Camera permission denied. Please allow camera access.");
-      } else {
-        showToast("Error: " + (e.message || String(e)), 6000);
-      }
-    }
-  }
+  try {
+    await startCamera();
+    await loadModel();
 
-  function deactivate() {
-    active = false;
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    stopCamera();
-    btn.classList.remove("active");
+    active = true;
+    btn.classList.add("active");
     btn.textContent = "👅";
-    prevY    = null;
-    yHistory = [];
-    missCount  = 0;
-    frameCount = 0;
+    btn.disabled    = false;
+    setStatus("👅 ready — stick out your tongue!");
+    showToast("Stick out tongue + move up/down to scroll", 3000);
+    detectLoop();
+  } catch (e) {
+    console.error("Activate error:", e);
+    btn.textContent = "👅";
+    btn.disabled    = false;
+    btn.classList.remove("active");
     setStatus(null);
+    stopCamera();
+    active = false;
+    if (e.name === "NotAllowedError") {
+      showToast("Camera permission denied.");
+    } else {
+      showToast("Error: " + (e.message || String(e)), 6000);
+    }
   }
+}
 
-  btn.addEventListener("click", () => {
-    if (active) deactivate();
-    else activate();
-  });
-})();
+function deactivate() {
+  active = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  stopCamera();
+  btn.classList.remove("active");
+  btn.textContent = "👅";
+  prevY = null; yHistory = []; missCount = 0; frameCount = 0;
+  setStatus(null);
+}
+
+btn.addEventListener("click", () => {
+  if (active) deactivate();
+  else activate();
+});
 </script>
 
 </body>
