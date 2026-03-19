@@ -1,336 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>The Mic</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 
-    body {
-      background: #0a0a0a;
-      color: #f0f0f0;
-      font-family: 'Georgia', serif;
-      min-height: 100vh;
-    }
-
-    /* ── HEADER ── */
     header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 48px 24px 32px;
-      border-bottom: 1px solid #222;
+      display: flex; align-items: center; gap: 14px;
+      padding: 18px 16px 16px;
+      border-bottom: 1px solid #1c1c1c;
     }
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .logo svg {
-      width: 72px;
-      height: 72px;
-      flex-shrink: 0;
-    }
-
-    .logo-text {
-      font-size: clamp(2rem, 6vw, 3.6rem);
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #e8e0d0;
-      line-height: 1;
-    }
-
-    .logo-text span {
-      color: #c8a040;
-    }
-
-    .tagline {
-      margin-top: 12px;
-      font-size: 0.85rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #666;
-    }
-
-    /* ── GRID ── */
-    main {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 40px 20px 60px;
-    }
-
-    .grid {
+    .feed {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(325px, 1fr));
-      gap: 24px;
-      justify-items: center;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      padding: 2px;
     }
+    .feed-item { aspect-ratio: 1; background: #111; overflow: hidden; }
+    .feed-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    .post-wrap {
-      width: 100%;
-      max-width: 605px;
-      background: #111;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid #1e1e1e;
-      transition: border-color 0.2s;
-    }
-
-    .post-wrap:hover {
-      border-color: #c8a040;
-    }
-
-    .post-wrap blockquote {
-      width: 100% !important;
-      min-width: unset !important;
-      max-width: 100% !important;
-    }
-
-    /* ── FOOTER ── */
-    footer {
-      text-align: center;
-      padding: 24px;
-      color: #333;
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
-      border-top: 1px solid #1a1a1a;
-    }
-
-    /* ── TONGUE SCROLL ── */
-
-    /* Hidden video feed */
-    #tongue-video {
-      position: fixed;
-      top: -9999px;
-      left: -9999px;
-      width: 320px;
-      height: 240px;
-    }
-
-    /* PIP camera preview */
-    #tongue-pip {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      width: 90px;
-      height: 68px;
-      border-radius: 10px;
-      overflow: hidden;
-      border: 2px solid #c8a040;
-      z-index: 1000;
-      display: none;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.7);
-    }
-
-    #tongue-pip video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1); /* mirror for selfie */
-    }
-
-    /* Toggle button */
     #tongue-btn {
-      position: fixed;
-      bottom: 28px;
-      right: 24px;
-      width: 58px;
-      height: 58px;
+      position: fixed; bottom: 24px; right: 20px;
+      width: 58px; height: 58px;
       border-radius: 50%;
-      background: #1a1a1a;
-      border: 2px solid #333;
-      cursor: pointer;
-      z-index: 1001;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 26px;
-      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
+      background: #25d366;
+      border: none; cursor: pointer;
+      font-size: 28px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      z-index: 100;
+      transition: transform 0.1s;
+    }
+    #tongue-btn:active { transform: scale(0.93); }
+    #tongue-btn:disabled { opacity: 0.6; }
+
+    #pip {
+      position: fixed; bottom: 94px; right: 20px;
+      width: 72px; height: 72px;
+      border-radius: 50%; overflow: hidden;
+      border: 2px solid #25d366;
+      display: none; z-index: 100;
+    }
+    #pip video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+
+    #status {
+      position: fixed; bottom: 176px; right: 16px;
+      background: rgba(0,0,0,0.8);
+      padding: 5px 10px; border-radius: 10px;
+      font-size: 12px; display: none; z-index: 100;
+      max-width: 150px; text-align: center;
     }
 
-    #tongue-btn.active {
-      background: #1e1600;
-      border-color: #c8a040;
-      box-shadow: 0 0 16px rgba(200,160,64,0.5);
-    }
-
-    /* Status badge */
-    #tongue-status {
-      position: fixed;
-      bottom: 98px;
-      right: 16px;
-      background: rgba(0,0,0,0.75);
-      color: #c8a040;
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      padding: 4px 10px;
-      border-radius: 20px;
-      border: 1px solid #c8a04055;
-      z-index: 1001;
-      display: none;
+    #toast {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(40,40,40,0.95);
+      padding: 10px 18px; border-radius: 20px;
+      font-size: 13px; display: none; z-index: 200;
       white-space: nowrap;
     }
 
-    /* Debug readout */
-    #tongue-debug {
-      position: fixed;
-      top: 92px;
-      left: 16px;
-      background: rgba(0,0,0,0.8);
-      color: #0f0;
-      font-family: monospace;
-      font-size: 0.65rem;
-      padding: 4px 8px;
-      border-radius: 6px;
-      z-index: 1002;
-      display: none;
-      line-height: 1.5;
-      pointer-events: none;
-    }
-
-    /* Toast */
-    #tongue-toast {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1a1a1a;
-      color: #f0f0f0;
-      padding: 10px 20px;
-      border-radius: 24px;
-      font-size: 0.82rem;
-      z-index: 1002;
-      display: none;
-      border: 1px solid #333;
-    }
+    #cam { display: none; width: 320px; height: 240px; }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="The Mic logo">
-      <rect x="30" y="62" width="12" height="3" rx="1.5" fill="#888"/>
-      <rect x="34.5" y="46" width="3" height="17" rx="1.5" fill="#888"/>
-      <path d="M36 46 Q36 36 26 32" stroke="#888" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-      <path d="M18 14 L22 44 L34 46 L34 12 Z" fill="#c8a040"/>
-      <path d="M18 14 L34 12 L34 46 L22 44 Z" fill="#e0b84a"/>
-      <line x1="19.5" y1="20" x2="33.5" y2="18.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
-      <line x1="20.5" y1="26" x2="33.5" y2="24.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
-      <line x1="21.5" y1="32" x2="33.8" y2="30.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
-      <line x1="22.5" y1="38" x2="33.8" y2="36.5" stroke="#a07020" stroke-width="1" opacity="0.6"/>
-      <ellipse cx="26" cy="13" rx="8" ry="3" fill="#b89030"/>
-      <ellipse cx="28" cy="45" rx="6" ry="1.8" fill="#b89030"/>
-      <path d="M21 16 Q23 28 22.5 42" stroke="rgba(255,255,255,0.18)" stroke-width="2" stroke-linecap="round" fill="none"/>
-    </svg>
-    <div>
-      <div class="logo-text">The <span>Mic</span></div>
-    </div>
-  </div>
-  <p class="tagline">Voices worth hearing</p>
+  <!-- Cone-shaped mic SVG logo -->
+  <svg width="42" height="50" viewBox="0 0 42 50" fill="none">
+    <path d="M6 6 Q21 1 36 6 L28 34 Q21 38 14 34 Z" fill="#d0d0d0"/>
+    <line x1="7.5"  y1="14" x2="34.5" y2="14" stroke="#888" stroke-width="0.8"/>
+    <line x1="8.5"  y1="22" x2="33.5" y2="22" stroke="#888" stroke-width="0.8"/>
+    <line x1="10"   y1="30" x2="32"   y2="30" stroke="#888" stroke-width="0.8"/>
+    <line x1="21"   y1="2"  x2="21"   y2="36" stroke="#888" stroke-width="0.8"/>
+    <line x1="14"   y1="3"  x2="12"   y2="36" stroke="#888" stroke-width="0.6" opacity="0.6"/>
+    <line x1="28"   y1="3"  x2="30"   y2="36" stroke="#888" stroke-width="0.6" opacity="0.6"/>
+    <rect x="18" y="34" width="6" height="7" fill="#999" rx="1.5"/>
+    <rect x="20" y="41" width="2" height="7" fill="#bbb" rx="1"/>
+    <ellipse cx="21" cy="48" rx="11" ry="2.5" fill="#999"/>
+  </svg>
+  <h1>The Mic</h1>
 </header>
 
-<main>
-  <div class="grid" id="grid"></div>
+<main class="feed">
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic1/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic2/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic3/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic4/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic5/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic6/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic7/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic8/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic9/600/600"  alt="" loading="lazy"></div>
+  <div class="feed-item"><img src="https://picsum.photos/seed/mic10/600/600" alt="" loading="lazy"></div>
 </main>
 
-<footer>
-  &copy; 2026 The Mic &mdash; All videos belong to their respective creators on TikTok.
-</footer>
+<button id="tongue-btn">👅</button>
+<div id="pip"><video id="pip-video" autoplay muted playsinline></video></div>
+<div id="status"></div>
+<div id="toast"></div>
+<video id="cam" autoplay muted playsinline></video>
 
-<!-- Tongue scroll UI -->
-<div id="tongue-pip">
-  <video id="pip-video" autoplay muted playsinline></video>
-</div>
+<!-- MediaPipe FaceMesh — plain script tag, no ES module imports needed -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
-<video id="tongue-video" autoplay muted playsinline></video>
-
-<button id="tongue-btn" title="Tongue scroll">👅</button>
-<div id="tongue-status"></div>
-<div id="tongue-debug"></div>
-<div id="tongue-toast"></div>
-
-<!-- TikTok posts -->
 <script>
-  const posts = [
-    { user: "buildrescue",         id: "7610073831037766934" },
-    { user: "us_delicious_cooking",id: "7612045334025342221" },
-    { user: "the_pastaqueen",      id: "7613122317987630366" },
-    { user: "superhomecook",       id: "7612699998161063190" },
-    { user: "cedriklorenzen",      id: "7596713133293587734" },
-    { user: "kerrangradio",        id: "7612045099958127894" },
-    { user: "mymicrowavepro",      id: "7610600736778489102" },
-    { user: "jasminenicole1995",   id: "7612514010029706509" },
-  ];
-
-  const grid = document.getElementById("grid");
-
-  posts.forEach(({ user, id }) => {
-    const url = `https://www.tiktok.com/@${user}/video/${id}`;
-    const wrap = document.createElement("div");
-    wrap.className = "post-wrap";
-    wrap.innerHTML = `
-      <blockquote class="tiktok-embed"
-        cite="${url}"
-        data-video-id="${id}">
-        <section></section>
-      </blockquote>`;
-    grid.appendChild(wrap);
-  });
-</script>
-
-<script async src="https://www.tiktok.com/embed.js"></script>
-
-<!-- Load MediaPipe as a module, expose on window for the main script -->
-<script type="module">
-try {
-  const { FaceLandmarker, FilesetResolver } = await import(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/vision_bundle.mjs"
-  );
-  window.__mp = { FaceLandmarker, FilesetResolver };
-  window.dispatchEvent(new CustomEvent("mp-loaded"));
-} catch (e) {
-  console.error("MediaPipe module load failed:", e);
-  window.dispatchEvent(new CustomEvent("mp-error", { detail: String(e) }));
-}
-</script>
-
-<!-- Tongue scroll logic (regular script — click handler always registered) -->
-<script>
-
-const MOUTH_OPEN_THRESHOLD = 0.025; // normalized distance to consider mouth "open" (tongue out)
-const SCROLL_MULTIPLIER    = 4000;  // scale normalized delta to pixels
-const SMOOTH_FRAMES        = 3;
-const MISS_FRAMES_STOP     = 8;
-
-const btn      = document.getElementById("tongue-btn");
-const pip      = document.getElementById("tongue-pip");
-const pipVideo = document.getElementById("pip-video");
-const hidVideo = document.getElementById("tongue-video");
-const statusEl = document.getElementById("tongue-status");
-const dbg      = document.getElementById("tongue-debug");
-const toast    = document.getElementById("tongue-toast");
-
-const TARGET_FPS = 12;  // cap inference to ~12fps to avoid overloading mobile GPUs
-const FRAME_MS   = Math.round(1000 / TARGET_FPS);
+const MOUTH_OPEN_TH = 0.03;   // normalized Y gap between inner lips = "tongue out"
+const SCROLL_MULT   = 3500;   // scale lip-delta to px
 
 let active     = false;
-let landmarker = null;
-let stream     = null;
-let loopTimer  = null;
-let detecting  = false;  // re-entry guard
-let prevY      = null;
-let yHistory   = [];
-let missCount  = 0;
-let frameCount = 0;
+let fm         = null;
+let loopId     = null;
+let processing = false;
+let prevLipY   = null;
 
-function showToast(msg, ms = 4000) {
+const btn      = document.getElementById("tongue-btn");
+const pip      = document.getElementById("pip");
+const pipVideo = document.getElementById("pip-video");
+const cam      = document.getElementById("cam");
+const statusEl = document.getElementById("status");
+const toast    = document.getElementById("toast");
+
+function showToast(msg, ms = 3000) {
   toast.textContent = msg;
   toast.style.display = "block";
   clearTimeout(toast._t);
@@ -338,188 +133,98 @@ function showToast(msg, ms = 4000) {
 }
 
 function setStatus(msg) {
-  if (msg) { statusEl.textContent = msg; statusEl.style.display = "block"; }
-  else { statusEl.style.display = "none"; }
+  statusEl.textContent = msg;
+  statusEl.style.display = msg ? "block" : "none";
 }
 
-/* ── Load MediaPipe Face Landmarker (one-time, lazy) ── */
-async function loadModel() {
-  if (landmarker) return;
-  setStatus("loading model…");
-  dbg.innerHTML = "waiting for MediaPipe…";
-
-  // Wait for the <script type="module"> to finish loading MediaPipe
-  if (!window.__mp) {
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("MediaPipe timed out — check connection")), 20000);
-      window.addEventListener("mp-loaded", () => { clearTimeout(timeout); resolve(); }, { once: true });
-      window.addEventListener("mp-error", (e) => { clearTimeout(timeout); reject(new Error("MediaPipe failed: " + e.detail)); }, { once: true });
-    });
+function onFaceResults(results) {
+  if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
+    prevLipY = null;
+    setStatus("👁 no face");
+    return;
   }
+  const lm   = results.multiFaceLandmarks[0];
+  const open = Math.abs(lm[14].y - lm[13].y);  // 13=upper inner lip, 14=lower inner lip
 
-  const { FaceLandmarker: FL, FilesetResolver: FR } = window.__mp;
-  dbg.innerHTML = "loading WASM + model…";
-
-  const vision = await FR.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm/"
-  );
-
-  landmarker = await FL.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-      delegate: "GPU",
-    },
-    runningMode: "VIDEO",
-    numFaces: 1,
-    outputFaceBlendshapes: true,  // gives us tongueOut score
-  });
-
-  dbg.innerHTML = "model loaded ✓";
-  console.log("MediaPipe FaceLandmarker loaded");
-}
-
-/* ── Camera ── */
-async function startCamera() {
-  stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user", width: { ideal: 320 }, height: { ideal: 240 } }
-  });
-  hidVideo.srcObject = stream;
-  pipVideo.srcObject = stream;
-  await hidVideo.play();
-  await pipVideo.play();
-  pip.style.display = "block";
-  dbg.style.display = "block";
-}
-
-function stopCamera() {
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  hidVideo.srcObject = null;
-  pipVideo.srcObject = null;
-  pip.style.display  = "none";
-  dbg.style.display  = "none";
-}
-
-/* ── Detection loop (100% local, zero network, guarded against stacking) ── */
-function detectLoop() {
-  if (!active || detecting) return;
-  detecting = true;
-
-  try {
-    if (hidVideo.readyState >= 2) {
-      const now = performance.now();
-      const result = landmarker.detectForVideo(hidVideo, now);
-      frameCount++;
-
-      let tongueActive = false;
-      let mouthCenterY = null;
-      let openness = 0;
-      let tongueOutScore = 0;
-
-      if (result.faceLandmarks && result.faceLandmarks.length > 0) {
-        const lm = result.faceLandmarks[0];
-
-        // Landmarks 13 = inner upper lip center, 14 = inner lower lip center
-        const upperLip = lm[13];
-        const lowerLip = lm[14];
-        openness = lowerLip.y - upperLip.y; // normalized 0–1
-        mouthCenterY = (upperLip.y + lowerLip.y) / 2;
-
-        // Check blendshapes for tongueOut if available
-        if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
-          const shapes = result.faceBlendshapes[0].categories;
-          const tongueShape = shapes.find(s => s.categoryName === "tongueOut");
-          tongueOutScore = tongueShape ? tongueShape.score : 0;
-        }
-
-        // Tongue is "active" if mouth is open enough OR blendshape says tongue is out
-        tongueActive = openness > MOUTH_OPEN_THRESHOLD || tongueOutScore > 0.3;
-      }
-
-      // Debug
-      dbg.innerHTML = `frame:${frameCount} | open:${(openness*1000).toFixed(1)}<br>`
-        + `tongue:${tongueOutScore.toFixed(2)} | `
-        + (tongueActive ? `y:${(mouthCenterY*1000).toFixed(0)}` : "closed");
-
-      if (tongueActive && mouthCenterY !== null) {
-        missCount = 0;
-
-        yHistory.push(mouthCenterY);
-        if (yHistory.length > SMOOTH_FRAMES) yHistory.shift();
-
-        if (prevY !== null && yHistory.length >= 2) {
-          const smoothed = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
-          const delta = smoothed - prevY;
-          window.scrollBy({ top: delta * SCROLL_MULTIPLIER, behavior: "auto" });
-        }
-
-        prevY = yHistory.reduce((a, b) => a + b, 0) / yHistory.length;
-        setStatus("👅 scrolling");
-      } else {
-        missCount++;
-        if (missCount >= MISS_FRAMES_STOP) {
-          prevY = null; yHistory = [];
-          setStatus("👅 ready");
-        }
-      }
+  if (open > MOUTH_OPEN_TH) {
+    const lipY = lm[14].y;
+    if (prevLipY !== null) {
+      window.scrollBy({ top: (lipY - prevLipY) * SCROLL_MULT, behavior: "auto" });
     }
-  } catch (e) {
-    console.warn("Detect error:", e);
-    dbg.innerHTML = "err: " + (e.message || String(e));
+    prevLipY = lipY;
+    setStatus("👅 scrolling");
+  } else {
+    prevLipY = null;
+    setStatus("😐 tongue out to scroll");
   }
-
-  detecting = false;
-  // Schedule next frame with fixed interval — prevents stacking
-  if (active) loopTimer = setTimeout(detectLoop, FRAME_MS);
 }
 
-/* ── Activate / Deactivate ── */
-async function activate() {
+async function buildFaceMesh() {
+  const mesh = new FaceMesh({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+  });
+  mesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: false,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5
+  });
+  mesh.onResults(onFaceResults);
+  if (typeof mesh.initialize === "function") await mesh.initialize();
+  return mesh;
+}
+
+function stopAll() {
+  active = false;
+  clearInterval(loopId);
+  loopId = null;
+  if (cam.srcObject) { cam.srcObject.getTracks().forEach(t => t.stop()); cam.srcObject = null; }
+  pip.style.display = "none";
+  setStatus(null);
+  btn.textContent = "👅";
+  btn.disabled = false;
+}
+
+btn.addEventListener("click", async () => {
+  if (active) { stopAll(); return; }
+
   btn.textContent = "⏳";
-  btn.disabled    = true;
-  setStatus("starting…");
+  btn.disabled = true;
 
   try {
-    await startCamera();
-    await loadModel();
+    showToast("Starting camera…");
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 320 }, height: { ideal: 240 } }
+    });
+    cam.srcObject      = stream;
+    pipVideo.srcObject = stream;
+    await cam.play();
+
+    showToast("Loading model… (first launch ~5 s)");
+    if (!fm) fm = await buildFaceMesh();
+
+    // 10 fps, no frame stacking
+    processing = false;
+    loopId = setInterval(async () => {
+      if (processing || !active) return;
+      processing = true;
+      try { await fm.send({ image: cam }); } catch (_) {}
+      processing = false;
+    }, 100);
 
     active = true;
-    btn.classList.add("active");
-    btn.textContent = "👅";
-    btn.disabled    = false;
-    setStatus("👅 ready — stick out your tongue!");
-    showToast("Stick out tongue + move up/down to scroll", 3000);
-    detectLoop();
+    pip.style.display = "block";
+    setStatus("😐 tongue out to scroll");
+    btn.textContent = "🛑";
+    btn.disabled = false;
+    showToast("Ready! Stick out your tongue 👅", 3000);
+
   } catch (e) {
-    console.error("Activate error:", e);
+    console.error(e);
+    showToast("Error: " + (e.message || String(e)), 5000);
     btn.textContent = "👅";
-    btn.disabled    = false;
-    btn.classList.remove("active");
-    setStatus(null);
-    stopCamera();
-    active = false;
-    if (e.name === "NotAllowedError") {
-      showToast("Camera permission denied.");
-    } else {
-      showToast("Error: " + (e.message || String(e)), 6000);
-    }
+    btn.disabled = false;
   }
-}
-
-function deactivate() {
-  active = false;
-  if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
-  detecting = false;
-  stopCamera();
-  btn.classList.remove("active");
-  btn.textContent = "👅";
-  prevY = null; yHistory = []; missCount = 0; frameCount = 0;
-  setStatus(null);
-}
-
-btn.addEventListener("click", () => {
-  if (active) deactivate();
-  else activate();
 });
 </script>
 
