@@ -168,7 +168,7 @@ function onFaceResults(results) {
       const delta = smoothedY - prevY;
       // Dead zone — only scroll if movement is meaningful
       if (Math.abs(delta) > DEAD_ZONE) {
-        window.scrollBy({ top: delta * SCROLL_MULT, behavior: "auto" });
+        window.scrollBy({ top: -delta * SCROLL_MULT, behavior: "auto" });
       }
     }
     prevY = smoothedY;
