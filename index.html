@@ -177,6 +177,23 @@
       white-space: nowrap;
     }
 
+    /* Debug readout */
+    #tongue-debug {
+      position: fixed;
+      top: 92px;
+      left: 16px;
+      background: rgba(0,0,0,0.8);
+      color: #0f0;
+      font-family: monospace;
+      font-size: 0.65rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      z-index: 1002;
+      display: none;
+      line-height: 1.5;
+      pointer-events: none;
+    }
+
     /* Toast */
     #tongue-toast {
       position: fixed;
@@ -236,6 +253,7 @@
 
 <button id="tongue-btn" title="Tongue scroll">👅</button>
 <div id="tongue-status"></div>
+<div id="tongue-debug"></div>
 <div id="tongue-toast"></div>
 
 <!-- TikTok posts -->
@@ -276,18 +294,21 @@
   const RF_KEY   = "rf_IUCaySPyzZfaNupjWdpU9XN0VnG2";
   const RF_MODEL = "tongue-detection-3okgf";
   const RF_VER   = 1;
-  const CONFIDENCE_THRESHOLD = 0.45;
-  const SCROLL_MULTIPLIER    = 10;
-  const SMOOTH_FRAMES        = 4;
+  const CONFIDENCE_THRESHOLD = 0.30;
+  const SCROLL_MULTIPLIER    = 12;
+  const SMOOTH_FRAMES        = 3;
   const MISS_FRAMES_STOP     = 5;
-  const DETECT_INTERVAL_MS   = 150; // ~6fps inference
+  const DETECT_INTERVAL_MS   = 150;
 
   const btn      = document.getElementById("tongue-btn");
   const pip      = document.getElementById("tongue-pip");
   const pipVideo = document.getElementById("pip-video");
   const hidVideo = document.getElementById("tongue-video");
   const status   = document.getElementById("tongue-status");
+  const dbg      = document.getElementById("tongue-debug");
   const toast    = document.getElementById("tongue-toast");
+
+  let callCount = 0;
 
   // Offscreen canvas for frame capture
   const canvas = document.createElement("canvas");
@@ -319,13 +340,16 @@
   }
 
   async function detect() {
-    // Mirror the frame (front camera is mirrored in CSS but video data is not)
+    // Wait until video has data
+    if (hidVideo.readyState < 2) return [];
+
     ctx.save();
     ctx.scale(-1, 1);
     ctx.drawImage(hidVideo, -160, 0, 160, 120);
     ctx.restore();
 
     const base64 = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
+    callCount++;
 
     const res = await fetch(
       `https://detect.roboflow.com/${RF_MODEL}/${RF_VER}?api_key=${RF_KEY}`,
@@ -336,9 +360,17 @@
       }
     );
 
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
-    return data.predictions || [];
+    const preds = data.predictions || [];
+
+    // Debug readout
+    const best = preds[0];
+    dbg.innerHTML = `calls:${callCount} | preds:${preds.length}<br>`
+      + (best ? `conf:${(best.confidence*100).toFixed(0)}% y:${best.y.toFixed(0)}` : "no tongue");
+
+    console.log("RF preds:", preds);
+    return preds;
   }
 
   async function startCamera() {
@@ -350,6 +382,7 @@
     await hidVideo.play();
     await pipVideo.play();
     pip.style.display = "block";
+    dbg.style.display = "block";
   }
 
   function stopCamera() {
@@ -357,6 +390,7 @@
     hidVideo.srcObject = null;
     pipVideo.srcObject = null;
     pip.style.display  = "none";
+    dbg.style.display  = "none";
   }
 
   async function detectLoop() {
