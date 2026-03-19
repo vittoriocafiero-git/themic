@@ -270,9 +270,6 @@
 
 <script async src="https://www.tiktok.com/embed.js"></script>
 
-<!-- Roboflow -->
-<script src="https://cdn.roboflow.com/0.2.20/roboflow.js"></script>
-
 <!-- Tongue scroll logic -->
 <script>
 (function () {
@@ -281,8 +278,9 @@
   const RF_VER   = 1;
   const CONFIDENCE_THRESHOLD = 0.45;
   const SCROLL_MULTIPLIER    = 10;
-  const SMOOTH_FRAMES        = 4;   // rolling average window
-  const MISS_FRAMES_STOP     = 5;   // frames without tongue before pause
+  const SMOOTH_FRAMES        = 4;
+  const MISS_FRAMES_STOP     = 5;
+  const DETECT_INTERVAL_MS   = 150; // ~6fps inference
 
   const btn      = document.getElementById("tongue-btn");
   const pip      = document.getElementById("tongue-pip");
@@ -291,15 +289,20 @@
   const status   = document.getElementById("tongue-status");
   const toast    = document.getElementById("tongue-toast");
 
+  // Offscreen canvas for frame capture
+  const canvas = document.createElement("canvas");
+  canvas.width  = 160;
+  canvas.height = 120;
+  const ctx = canvas.getContext("2d");
+
   let active    = false;
-  let model     = null;
   let stream    = null;
-  let rafId     = null;
+  let loopTimer = null;
   let prevY     = null;
-  let yHistory  = [];   // rolling buffer
+  let yHistory  = [];
   let missCount = 0;
 
-  function showToast(msg, ms = 3000) {
+  function showToast(msg, ms = 4000) {
     toast.textContent = msg;
     toast.style.display = "block";
     clearTimeout(toast._t);
@@ -315,52 +318,60 @@
     }
   }
 
-  async function loadModel() {
-    if (model) return model;
-    return new Promise((resolve, reject) => {
-      roboflow.auth({ publishable_key: RF_KEY })
-        .load({ model: RF_MODEL, version: RF_VER,
-                onMetadata: () => {} })
-        .then(m => { model = m; resolve(m); })
-        .catch(reject);
-    });
+  async function detect() {
+    // Mirror the frame (front camera is mirrored in CSS but video data is not)
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(hidVideo, -160, 0, 160, 120);
+    ctx.restore();
+
+    const base64 = canvas.toDataURL("image/jpeg", 0.6).split(",")[1];
+
+    const res = await fetch(
+      `https://detect.roboflow.com/${RF_MODEL}/${RF_VER}?api_key=${RF_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: base64,
+      }
+    );
+
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    return data.predictions || [];
   }
 
   async function startCamera() {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "user", width: 320, height: 240 }
     });
-    hidVideo.srcObject  = stream;
-    pipVideo.srcObject  = stream;
+    hidVideo.srcObject = stream;
+    pipVideo.srcObject = stream;
     await hidVideo.play();
     await pipVideo.play();
     pip.style.display = "block";
   }
 
   function stopCamera() {
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
-    hidVideo.srcObject  = null;
-    pipVideo.srcObject  = null;
-    pip.style.display   = "none";
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    hidVideo.srcObject = null;
+    pipVideo.srcObject = null;
+    pip.style.display  = "none";
   }
 
   async function detectLoop() {
     if (!active) return;
 
     try {
-      const predictions = await model.detect(hidVideo);
+      const predictions = await detect();
       const tongue = predictions
         .filter(p => p.confidence >= CONFIDENCE_THRESHOLD)
         .sort((a, b) => b.confidence - a.confidence)[0];
 
       if (tongue) {
         missCount = 0;
-        const cy = tongue.bbox.y; // center Y in video coords
+        const cy = tongue.y; // center Y in image coords
 
-        // Add to rolling history
         yHistory.push(cy);
         if (yHistory.length > SMOOTH_FRAMES) yHistory.shift();
 
@@ -375,16 +386,15 @@
       } else {
         missCount++;
         if (missCount >= MISS_FRAMES_STOP) {
-          prevY    = null;
-          yHistory = [];
+          prevY = null; yHistory = [];
           setStatus("👅 ready");
         }
       }
     } catch (e) {
-      // inference error — keep looping
+      console.warn("Tongue detect error:", e);
     }
 
-    rafId = requestAnimationFrame(detectLoop);
+    if (active) loopTimer = setTimeout(detectLoop, DETECT_INTERVAL_MS);
   }
 
   async function activate() {
@@ -394,8 +404,6 @@
 
     try {
       await startCamera();
-      await loadModel();
-
       active = true;
       btn.classList.add("active");
       btn.textContent = "👅";
@@ -412,14 +420,14 @@
       if (e.name === "NotAllowedError") {
         showToast("Camera permission denied. Please allow camera access.");
       } else {
-        showToast("Could not start tongue scroll: " + e.message);
+        showToast("Could not start: " + (e.message || String(e)));
       }
     }
   }
 
   function deactivate() {
     active = false;
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
     stopCamera();
     btn.classList.remove("active");
     btn.textContent = "👅";
